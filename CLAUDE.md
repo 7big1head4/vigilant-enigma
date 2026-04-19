@@ -4,7 +4,7 @@ This file provides guidance for AI assistants (Claude and others) working in thi
 
 ## Repository Overview
 
-**vigilant-enigma** is a newly initialized repository. As of this writing it contains only a GPL-2.0 LICENSE file. This document establishes conventions and workflows to follow as the project grows.
+**vigilant-enigma** is a personal AI workspace that implements a four-folder persistent memory system for Claude. It contains structured context Claude reads at the start of each session to maintain continuity across conversations.
 
 - **License:** GNU General Public License v2.0
 - **Remote:** `7big1head4/vigilant-enigma`
@@ -48,15 +48,46 @@ Since no source code exists yet, conventions will be defined here as the project
 
 ---
 
+## Persistent Memory System
+
+At the start of every session, Claude should read the following in order:
+
+1. **`ABOUT_ME/profile.md`** — User background, working style, priorities, and standing instructions
+2. **`Projects/`** — Read the relevant project file(s) for the current session's focus
+3. **`Templates/`** — Check here before creating any reusable artifact from scratch
+4. **`Outputs/`** — Reference past outputs when continuing existing work
+
+| Folder | Purpose |
+|---|---|
+| `ABOUT_ME/` | Who the user is and how they want to work |
+| `Projects/` | Active project briefs, organized by type (software/, business/, personal/) |
+| `Templates/` | Reusable prompts, docs, code scaffolds, and comms |
+| `Outputs/` | Saved artifacts organized by project |
+
+---
+
 ## File Structure (current)
 
 ```
 vigilant-enigma/
-├── LICENSE          # GNU GPL v2.0
-└── CLAUDE.md        # This file
+├── ABOUT_ME/
+│   └── profile.md               # User profile and Claude instructions
+├── Projects/
+│   ├── README.md                # How to add/manage projects
+│   ├── software/                # Software & app projects
+│   ├── business/                # Strategy, plans, SOPs
+│   └── personal/                # Learning & personal projects
+├── Templates/
+│   ├── README.md
+│   ├── prompts/                 # Reusable Claude prompts
+│   ├── docs/                    # PRDs, briefs, reports
+│   ├── code/                    # Scaffolds & boilerplate
+│   └── comms/                   # Emails, proposals, posts
+├── Outputs/
+│   └── README.md                # Output naming & storage conventions
+├── LICENSE                      # GNU GPL v2.0
+└── CLAUDE.md                    # This file
 ```
-
-Update this tree as directories and files are added.
 
 ---
 
