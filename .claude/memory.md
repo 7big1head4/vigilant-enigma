@@ -36,3 +36,4 @@ Only proceed on "yes / go / perfect / confirmed".
 - 2026-04-27: Profile updated to Token-Efficient Dominant + Lazy User. Priority order locked: Speed → Correctness → Maintainability → Minimalism.
 - 2026-04-27: PRD v2 built. Full system: scripts/ (new-project, daily-summary, weekly-review, dashboard-update) + Dashboard/index.md live. Auto-output rule active.
 - 2026-04-27: All templates updated (brainstorm, code-review, PRD, brief, CLI scaffold, cold email). Templates count: 6.
+- 2026-04-27: Dashboard = single file, on-demand only. No splits, no cron.

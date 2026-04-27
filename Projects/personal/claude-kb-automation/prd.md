@@ -50,8 +50,8 @@ I spend too much time re-explaining my preferences, style, and context to Claude
 - [ ] Backup/sync script (v2.1)
 - [ ] Test full flow with 3 real projects
 
-## Open Questions
-- Should dashboard be a single file or split into sections?
-- Preferred refresh frequency: on-demand vs daily auto?
+## Decisions Locked
+- Dashboard: single file (`Dashboard/index.md`) — no splits
+- Refresh: on-demand only (`./scripts/dashboard-update.sh`) — no auto/cron
 
 **Approved by:** Jeffrey — 2026-04-27
