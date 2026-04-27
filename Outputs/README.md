@@ -1,34 +1,19 @@
-# Outputs
+# Outputs — Single Source of Truth
 
-Saved artifacts from Claude sessions, organized by project.
+**Naming convention:** `Outputs/[project-name]/YYYY-MM-DD-short-description.md`
 
-## Structure
+## Rule
 
-```
-Outputs/
-└── [project-name]/
-    └── [YYYY-MM-DD]-[description].md
-```
+After any significant work, Claude automatically creates a file here with:
+- What was done + why
+- Key decisions made
+- Next steps
+- Any new rules/preferences to remember
 
-## Naming Convention
-
-`YYYY-MM-DD-short-description.md`
-
-Examples:
-- `2026-04-19-landing-page-copy.md`
-- `2026-04-19-api-design-draft.md`
-
-## When to Save an Output
-
-- Final or near-final drafts worth keeping
-- Research summaries you'll reference again
-- Generated code or configs that work and should be preserved
-- Decisions with rationale documented
+This folder is the permanent record. Never delete or move files.
 
 ## How to Add a Project Folder
 
 ```bash
 mkdir Outputs/[project-name]
 ```
-
-Then save outputs into it using the naming convention above.
