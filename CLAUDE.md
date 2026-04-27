@@ -45,16 +45,25 @@ This is a **personal AI workspace** — not a software project. There is no buil
 
 ### Adding a project
 
-Create `Projects/<type>/<project-name>.md` with: Goal, Status, Key Decisions Made, Next Actions, Context for Claude.
+```bash
+./scripts/new-project.sh [software|business|personal] [name] "goal"
+```
+
+Creates `Projects/<type>/<name>/brief.md` and `Outputs/<name>/` automatically.
 
 ### Saving an output
 
+After any significant work, Claude writes `Outputs/<project>/YYYY-MM-DD-description.md` with: what was done, key decisions, next steps, new rules/preferences. This is the permanent record — never delete or move files.
+
+### Dashboard
+
 ```bash
-mkdir -p Outputs/<project-name>
-# then write the file
+./scripts/dashboard-update.sh   # regenerate Dashboard/index.md
+./scripts/daily-summary.sh      # log today's activity
+./scripts/weekly-review.sh      # 7-day retrospective
 ```
 
-File name format: `YYYY-MM-DD-short-description.md`
+`Dashboard/index.md` shows active projects, recent outputs, memory stats, open actions, and health score (0–100).
 
 ---
 
@@ -62,11 +71,12 @@ File name format: `YYYY-MM-DD-short-description.md`
 
 | Path | Use for |
 |---|---|
-| `Templates/prompts/prompt-brainstorm.md` | Generating N ideas with risk/rationale table |
-| `Templates/prompts/prompt-code-review.md` | Structured code review (correctness, security, simplicity, perf) |
-| `Templates/docs/doc-prd.md` | Product Requirements Documents |
+| `Templates/prompts/prompt-brainstorm.md` | 6-8 ideas, pros/cons table, recommendation, wild card |
+| `Templates/prompts/prompt-code-review.md` | Score + top-3 issues + ready-to-apply fixes |
+| `Templates/docs/doc-prd.md` | Lean 7-field PRD |
+| `Templates/docs/brief-template.md` | 9-field project brief (used by new-project.sh) |
 | `Templates/code/scaffold-cli-tool.md` | CLI tool file structure + checklist |
-| `Templates/comms/comms-cold-email.md` | Cold outreach under 100 words |
+| `Templates/comms/comms-cold-email.md` | 3-version outreach (short / medium / bold) |
 
 When creating anything reusable from scratch, save it back to the appropriate `Templates/` subfolder.
 
