@@ -38,3 +38,4 @@ Only proceed on "yes / go / perfect / confirmed".
 - 2026-04-27: All templates updated (brainstorm, code-review, PRD, brief, CLI scaffold, cold email). Templates count: 6.
 - 2026-04-27: Dashboard = single file, on-demand only. No splits, no cron.
 - 2026-04-27: rpi5-ai-pentester project launched. Parrot OS + hybrid AI (llama.cpp local + Claude Haiku 4.5 cloud) + scope guard. Roadmap shipped.
+- 2026-04-27: govcon-revenue project launched. Bootstrap GovCon: scanner on Pi 5 + LLC + first contract in 90 days, ≤$1k spend. 12-week roadmap shipped. Day 3 UEI rule locked.
