@@ -1,15 +1,12 @@
-# Template: Brainstorm Session
+# Template: Brainstorm
 
-Topic: [TOPIC]
+Use for any vague idea.
 
-Generate [N] distinct ideas for [GOAL]. For each idea:
+**Goal:** [paste your vague idea]
 
-| # | Idea | Why it works | Biggest risk |
-|---|------|-------------|-------------|
-| 1 | ... | ... | ... |
-
-Then recommend the top 1-2 with a one-paragraph rationale each.
-
-Constraints:
-- [CONSTRAINT 1]
-- [CONSTRAINT 2]
+**Process:**
+1. If unclear → ask max 5 questions first
+2. Generate 6-8 strong options
+3. Pros/cons table for top 3
+4. Clear recommendation + why
+5. One "wild card" idea that might be genius
