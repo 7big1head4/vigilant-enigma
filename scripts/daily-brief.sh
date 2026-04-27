@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Prints today's brief to stdout: active projects, open actions, recent outputs
+# Prints today's brief to stdout and saves to Outputs/daily-briefs/
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATE=$(date +%Y-%m-%d)
 DOW=$(date +%A)
+OUTDIR="$REPO_ROOT/Outputs/daily-briefs"
+OUTFILE="$OUTDIR/$DATE-brief.md"
+mkdir -p "$OUTDIR"
 
 # --- Active projects ---
 ACTIVE_PROJECTS=""
@@ -40,6 +43,7 @@ done < <(find "$REPO_ROOT/Outputs" -name "*.md" -mtime -2 \
 # --- Memory health ---
 LEARNED=$(grep -c "^- " "$REPO_ROOT/.claude/memory.md" 2>/dev/null || echo 0)
 
+{
 cat <<EOF
 # Daily Brief — $DOW, $DATE
 
@@ -69,3 +73,4 @@ $LEARNED learned rules/preferences in .claude/memory.md
 ---
 Run \`./scripts/dashboard-update.sh\` for full system view.
 EOF
+} | tee "$OUTFILE"
