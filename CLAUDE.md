@@ -14,11 +14,13 @@ processes.
 
 ## Current status
 
-**Pre-code.** The repository contains this file,
-`.github/pull_request_template.md`, and `LICENSE` (GPL v2). Everything in
-the Architecture section below is *planned*, not built. Whoever implements
-the first piece of a subsystem must update the corresponding section here in
-the same PR — planned sections become real descriptions with file paths.
+**One component built; the runtime is still planned.** The repository
+contains this file, `.github/pull_request_template.md`, `LICENSE` (GPL v2),
+and the first piece of code: `dashboard/enigma_dash.py`, a live system-stats
+dashboard (see Architecture below). Everything else in the Architecture
+section is *planned*, not built. Whoever implements the first piece of a
+subsystem must update the corresponding section here in the same PR —
+planned sections become real descriptions with file paths.
 
 ## Design principles
 
@@ -80,6 +82,17 @@ citizens, not a fallback; hosted providers such as the Claude API plug into
 the same interface. The model layer reports token usage so the scheduler
 can enforce cost budgets.
 
+### Dashboard (built)
+
+`dashboard/enigma_dash.py` — a single-file, stdlib-only Python web server
+that shows live stats for the machine Enigma runs on: CPU (total, per-core,
+sparkline), memory, disk, temperature and Pi throttle flags, network rates,
+top processes, and a placeholder panel that will show agents and token
+budgets once the runtime exists. It reads `/proc` and `/sys` directly (no
+pip dependencies), serves an embedded theme-aware HTML page, and is a PWA —
+open it on a phone and "Add to Home Screen" to install it. It binds to all
+interfaces by default and has **no authentication**: trusted networks only.
+
 ## Stack & repository layout (planned)
 
 - **Rust core**: scheduler, message bus, state and suspension, permission
@@ -97,6 +110,8 @@ listing current):
 .
 ├── .github/
 │   └── pull_request_template.md   # template applied to new PRs
+├── dashboard/
+│   └── enigma_dash.py             # live system-stats dashboard (built)
 ├── core/          # (planned) Rust workspace: the runtime
 ├── sdk/python/    # (planned) Python agent SDK
 ├── examples/      # (planned) runnable example agents
@@ -107,7 +122,18 @@ listing current):
 
 ## Build, test, lint
 
-TODO — no manifests exist yet. Expected tooling, so the first PRs use it:
+**Dashboard** (no install step — standard library only, Python 3.9+):
+
+```
+python3 dashboard/enigma_dash.py            # binds 0.0.0.0:8765
+python3 dashboard/enigma_dash.py --host 127.0.0.1 --port 9000
+```
+
+Then open `http://<machine-ip>:8765/` and use "Add to Home Screen" on a
+phone. Smoke-test with `curl http://127.0.0.1:8765/api/stats`.
+
+**Core and SDK**: TODO — no manifests exist yet. Expected tooling, so the
+first PRs use it:
 
 - Core: `cargo build` / `cargo test` / `cargo clippy` / `cargo fmt`.
 - Python SDK: `uv` for environments/packaging, `pytest` for tests,
@@ -119,10 +145,11 @@ test and how to cross-check an ARM64 build.
 
 ## License
 
-GNU General Public License v2.0. New Rust and Python source files should
-carry a GPL v2-compatible header once a header style is chosen (record it
-here). Do not introduce dependencies whose licenses are incompatible with
-GPL v2 without first discussing it in a PR.
+GNU General Public License v2.0. New Rust and Python source files carry the
+short-form GPL v2 comment header used at the top of
+`dashboard/enigma_dash.py` ("Copyright (C) <year> the Enigma authors" plus
+the standard two-paragraph notice). Do not introduce dependencies whose
+licenses are incompatible with GPL v2 without first discussing it in a PR.
 
 ## Git workflow
 
