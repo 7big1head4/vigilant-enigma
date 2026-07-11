@@ -1,0 +1,69 @@
+{
+  "name": "mythos-router",
+  "version": "1.2.1",
+  "description": "Capybara-tier CLI router — Claude Opus 4.7 with Adaptive Thinking, Strict Write Discipline, and Self-Healing Memory",
+  "type": "module",
+  "bin": {
+    "mythos": "./dist/cli.js",
+    "mythos-router": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./cli": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsc",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/cli.js",
+    "chat": "tsx src/cli.ts chat",
+    "verify": "tsx src/cli.ts verify",
+    "dream": "tsx src/cli.ts dream",
+    "rebuild": "tsx -e \"import { rebuildIndex } from './src/memory.js'; rebuildIndex();\""
+  },
+  "keywords": [
+    "claude",
+    "opus",
+    "anthropic",
+    "capybara",
+    "mythos",
+    "adaptive-thinking",
+    "ai-agent",
+    "cli",
+    "agent",
+    "llm",
+    "developer-tools",
+    "coding-assistant",
+    "filesystem-verification",
+    "strict-write-discipline"
+  ],
+  "author": "thewaltero",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thewaltero/mythos-router.git"
+  },
+  "homepage": "https://x.com/thewaltero",
+  "bugs": {
+    "url": "https://github.com/thewaltero/mythos-router/issues"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "commander": "^14.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
