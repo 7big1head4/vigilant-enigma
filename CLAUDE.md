@@ -18,8 +18,10 @@ with the actual details instead of leaving assumptions in your head.
 
 ```
 .
-├── CLAUDE.md   # this file
-└── LICENSE     # GNU GPL v2
+├── .github/
+│   └── pull_request_template.md   # template applied to new PRs
+├── CLAUDE.md                      # this file
+└── LICENSE                        # GNU GPL v2
 ```
 
 When you add a top-level directory (for example `src/`, `tests/`, `docs/`,
@@ -84,7 +86,8 @@ Capture conventions here as they emerge, for example:
 
 ## CI / CD
 
-TODO — there is no `.github/workflows/` directory yet.
+TODO — `.github/` exists but contains only the PR template; there is no
+`.github/workflows/` directory yet.
 
 When workflows are added, list each one, what triggers it (push, PR, tag),
 and what it does (lint, test, build, release). Note any required repository
@@ -95,6 +98,7 @@ secrets by name (never paste their values).
 - Default branch: `main`.
 - Remote: `https://github.com/7big1head4/vigilant-enigma`.
 - Feature work happens on a topic branch; open pull requests against `main`.
+- PR descriptions follow `.github/pull_request_template.md`.
 - Pull requests are opened as drafts and marked ready for review once CI is
   green and the change is complete.
 - Keep this file in sync with reality: any PR that changes tooling, layout,
