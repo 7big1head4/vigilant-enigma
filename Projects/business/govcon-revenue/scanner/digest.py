@@ -1,8 +1,9 @@
-"""Generate daily markdown digest of top-scored opportunities."""
+"""Generate daily markdown digest of top-scored opportunities + FPDS intel."""
 import os
 from datetime import datetime
-from config import MIN_SCORE, DIGEST_OUTPUT
-from store import get_top
+from config import MIN_SCORE, DIGEST_OUTPUT, FPDS_NAICS
+from store import get_top, award_intel
+from sources.states import manual_portals
 
 
 def generate() -> str:
@@ -33,6 +34,34 @@ def generate() -> str:
                 f"- **AI take:** {o['ai_summary']}",
                 f"",
             ]
+
+    # --- FPDS competitive intel ---
+    lines += ["", "---", "", "## 🏆 Competitive Intel (FPDS — who's winning)", ""]
+    any_intel = False
+    for naics in FPDS_NAICS:
+        rows = award_intel(naics, limit=5)
+        if not rows:
+            continue
+        any_intel = True
+        lines.append(f"**NAICS {naics} — top vendors (last 30d awards):**")
+        lines.append("")
+        lines.append("| Vendor | Wins | Avg $ | Total $ |")
+        lines.append("|---|---|---|---|")
+        for r in rows:
+            lines.append(
+                f"| {r['vendor'][:40]} | {r['wins']} | ${r['avg_amount']:,.0f} | ${r['total']:,.0f} |"
+            )
+        lines.append("")
+    if not any_intel:
+        lines.append("_No FPDS award data yet — run once with network access to populate._")
+
+    # --- Manual state portals reminder ---
+    portals = manual_portals()
+    if portals:
+        lines += ["", "---", "", f"## 📋 State Portals to Check Manually ({len(portals)})",
+                  "_These states have no machine-readable feed — check weekly:_", ""]
+        for p in portals:
+            lines.append(f"- **{p['state']}** — [{p['portal']}]({p['url']})")
 
     content = "\n".join(lines)
     with open(outfile, "w") as f:

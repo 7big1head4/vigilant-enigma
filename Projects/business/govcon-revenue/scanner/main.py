@@ -10,19 +10,21 @@ import store
 import filter as pre_filter
 import ai_score
 import digest
-from sources import sam_gov, grants_gov, sbir_gov, cal_eprocure
+from config import STATES, FPDS_NAICS
+from sources import sam_gov, grants_gov, sbir_gov, cal_eprocure, states as state_src, fpds, usaspending
 
 
 def run(days_back: int = 1):
     print(f"\n[{datetime.now().isoformat()}] Scanner starting (days_back={days_back})")
     store.init_db()
 
-    # 1. Fetch from all sources
+    # 1. Fetch OPEN opportunities from all sources
     sources = {
         "sam_gov":      lambda: sam_gov.fetch(days_back),
         "grants_gov":   lambda: grants_gov.fetch(days_back),
         "sbir":         sbir_gov.fetch,       # always fetches open solicitations
         "cal_eprocure": lambda: cal_eprocure.fetch(days_back),
+        "states":       lambda: state_src.fetch(STATES),   # all state RSS feeds
     }
 
     fetched_total = 0
@@ -42,6 +44,28 @@ def run(days_back: int = 1):
         for opp in passing:
             store.upsert(opp)
         fetched_total += len(passing)
+
+    # 3b. Awarded-contract intel (competitive intelligence, not scored)
+    # USAspending.gov is preferred (clean JSON API, richer fields); FPDS runs
+    # too as a fallback in case USAspending lags on the very latest awards.
+    award_count = 0
+    try:
+        usa_awards = usaspending.fetch(FPDS_NAICS, last_days=30)
+        for a in usa_awards:
+            store.upsert_award(a)
+        award_count += len(usa_awards)
+        print(f"  usaspending: {len(usa_awards)} awards stored (intel)")
+    except Exception as e:
+        print(f"  usaspending: FAILED — {e}", file=sys.stderr)
+
+    try:
+        fpds_awards = fpds.fetch(FPDS_NAICS, last_days=30)
+        for a in fpds_awards:
+            store.upsert_award(a)
+        award_count += len(fpds_awards)
+        print(f"  fpds: {len(fpds_awards)} awards stored (intel, fallback)")
+    except Exception as e:
+        print(f"  fpds: FAILED — {e}", file=sys.stderr)
 
     # 4. AI score any unscored rows (batched to control API cost)
     unscored = store.get_unscored(limit=100)

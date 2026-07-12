@@ -35,6 +35,23 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_source ON opportunities(source)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_posted ON opportunities(posted_date)")
 
+        # FPDS awarded-contract intel (competitive intelligence, not opportunities)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS awards (
+                id          TEXT PRIMARY KEY,
+                naics       TEXT,
+                vendor      TEXT,
+                agency      TEXT,
+                amount      REAL,
+                signed_date TEXT,
+                piid        TEXT,
+                description TEXT,
+                fetched_at  TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_awards_naics ON awards(naics)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_awards_vendor ON awards(vendor)")
+
 
 def upsert(opp: dict):
     with get_conn() as conn:
@@ -75,3 +92,33 @@ def get_top(min_score: int, days_back: int = 1):
               AND fetched_at >= datetime('now', ? || ' days')
             ORDER BY ai_score DESC
         """, (min_score, f"-{days_back}")).fetchall()
+
+
+def upsert_award(award: dict):
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO awards
+                (id, naics, vendor, agency, amount, signed_date, piid, description)
+            VALUES
+                (:id, :naics, :vendor, :agency, :amount, :signed_date, :piid, :description)
+            ON CONFLICT(id) DO UPDATE SET fetched_at = datetime('now')
+        """, award)
+
+
+def award_intel(naics: str | None = None, limit: int = 10):
+    """Top vendors + avg award size — competitive intel for the digest."""
+    with get_conn() as conn:
+        where = "WHERE naics = ?" if naics else ""
+        params = (naics,) if naics else ()
+        return conn.execute(f"""
+            SELECT vendor,
+                   COUNT(*)      as wins,
+                   ROUND(AVG(amount), 0) as avg_amount,
+                   ROUND(SUM(amount), 0) as total
+            FROM awards
+            {where}
+            GROUP BY vendor
+            HAVING vendor != ''
+            ORDER BY total DESC
+            LIMIT ?
+        """, (*params, limit)).fetchall()

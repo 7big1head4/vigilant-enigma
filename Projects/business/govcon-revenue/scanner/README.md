@@ -10,7 +10,38 @@ Runs on Raspberry Pi 5. Cost ≈ $0.75–$2/month.
 | SAM.gov | Federal contracts, solicitations, sources sought | Free API key |
 | Grants.gov | Federal grants | None |
 | SBIR.gov | SBIR/STTR Phase I & II solicitations | None |
-| Cal eProcure | California state contracts | None |
+| Cal eProcure | California state contracts (dedicated API module) | None |
+| **States (50 + DC)** | All state procurement portals via registry | None |
+| **USAspending.gov** | Awarded-contract intel — primary (clean JSON API) | None |
+| **FPDS** | Awarded-contract intel — fallback (raw ATOM, same data) | None |
+
+### State coverage
+
+All 50 states + DC live in `sources/states.py` `STATE_REGISTRY`, each mapped to a
+portal + access method:
+
+- **25 states — RSS/ATOM feeds:** scraped automatically every run
+- **25 states — no feed:** surfaced in the digest under "State Portals to Check
+  Manually" so nothing is missed (verify/upgrade these to feeds over time)
+- **1 (CA):** handled by the dedicated `cal_eprocure.py` module
+
+Limit which states you scan via `.env`: `STATES=CA,TX,NY` (empty = all).
+
+### Awarded-contract competitive intel (USAspending.gov + FPDS)
+
+Both list *awarded* contracts (not open ones) — same underlying data, different
+APIs. USAspending.gov (`sources/usaspending.py`) is the primary source: clean
+JSON REST API, no auth, richer fields. FPDS (`sources/fpds.py`) runs in parallel
+as a fallback since USAspending occasionally lags on the very latest awards.
+
+The digest shows a **top-vendors table per NAICS** (wins, average award, total $)
+combining both sources — so you can see incumbents and realistic award sizes
+before bidding. Set tracked codes via `.env`: `FPDS_NAICS=541512,541519`.
+
+Quick manual lookup without running the full scanner:
+```bash
+python -c "from sources.usaspending import top_vendors_live as t; print(t('541512'))"
+```
 
 ## Setup
 
