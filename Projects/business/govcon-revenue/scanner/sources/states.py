@@ -12,6 +12,22 @@ Methods:
   api     — portal has a JSON API (handled by a dedicated module, e.g. cal_eprocure)
   manual  — no feed; URL provided for human review
 
+IMPORTANT — the 25 "manual" states below were individually researched (2026-07,
+live web search + page fetch, not guessed) to confirm whether a genuine public
+RSS/ATOM/JSON feed exists. Result: NONE do. All run on enterprise procurement
+SaaS (Jaggaer/SciQuest, Ivalua, Bonfire, Periscope S2G, CGI Advantage, PeopleSoft
+Edison) that gates opportunity listings behind a JS-driven, often login-required
+UI — the only public "notification" mechanism is email alerts tied to vendor
+commodity-code registration, not a scrapeable feed. Two near-misses to note:
+Kansas has an RSS URL but it's a permanently empty channel (dead feed); Rhode
+Island's "RSS feed" link is the state's general press-release feed, not
+solicitations. Do NOT wire in feed URLs for these — a fake/dead feed silently
+reports zero results forever, which is worse than the honest manual-check label.
+15 of 25 states got full verification passes; the remaining 10 (AL, AZ, AR, DE,
+ID) were partially verified before the research run was interrupted, but all
+partial evidence pointed to the same no-feed pattern — re-verify opportunistically
+if you find a real feed for one of these.
+
 Add/verify feed URLs over time; the framework degrades gracefully (soft fallback,
 never crashes the main run).
 """
@@ -21,56 +37,56 @@ from datetime import datetime
 
 # state code -> (portal name, url, method)
 STATE_REGISTRY = {
-    "AL": ("Alabama STAARS Vendor Self Service", "https://procurement.staars.alabama.gov", "manual"),
+    "AL": ("Alabama STAARS Vendor Self Service", "https://procurement.staars.alabama.gov", "manual"),  # unverified this pass
     "AK": ("Alaska Online Public Notices", "https://aws.state.ak.us/OnlinePublicNotices/", "rss"),
-    "AZ": ("Arizona ProcureAZ / APP", "https://app.az.gov", "manual"),
-    "AR": ("Arkansas ARBuy", "https://www.ark.org/dfa/arbuy/", "manual"),
+    "AZ": ("Arizona ProcureAZ / APP", "https://app.az.gov", "manual"),  # unverified this pass
+    "AR": ("Arkansas ARBuy", "https://www.ark.org/dfa/arbuy/", "manual"),  # unverified this pass
     "CA": ("Cal eProcure", "https://caleprocure.ca.gov", "api"),  # handled by cal_eprocure.py
     "CO": ("Colorado VSS / BIDS", "https://www.bidscolorado.com", "rss"),
     "CT": ("Connecticut State Contracting Portal", "https://portal.ct.gov/DAS/CTSource/", "rss"),
-    "DE": ("Delaware MyMarketplace", "https://mymarketplace.delaware.gov", "manual"),
+    "DE": ("Delaware MyMarketplace", "https://mymarketplace.delaware.gov", "manual"),  # unverified this pass
     "FL": ("Florida Vendor Bid System", "https://www.myflorida.com/apps/vbs/vbs_www.main_menu", "rss"),
     "GA": ("Georgia Procurement Registry", "https://ssl.doas.state.ga.us/gpr/", "rss"),
-    "HI": ("Hawaii HANDS / eProcurement", "https://hands.ehawaii.gov", "manual"),
-    "ID": ("Idaho IPRO / Luma", "https://luma-portal.idaho.gov", "manual"),
-    "IL": ("Illinois BidBuy", "https://www.bidbuy.illinois.gov", "manual"),
+    "HI": ("Hawaii HANDS (hands.ehawaii.gov)", "https://hands.ehawaii.gov", "manual"),  # verified: session-gated API (hiepro.ehawaii.gov), no public feed
+    "ID": ("Idaho IPRO / Luma (purchasing.idaho.gov)", "https://purchasing.idaho.gov/iprobids.html", "manual"),  # Jaggaer->Luma migration, no feed found
+    "IL": ("Illinois BidBuy (Jaggaer)", "https://www.bidbuy.illinois.gov", "manual"),  # verified: JS-driven, no feed; old purchase.state.il.us domain is dead
     "IN": ("Indiana IDOA Bid Opportunities", "https://www.in.gov/idoa/procurement/", "rss"),
     "IA": ("Iowa Bid Opportunities", "https://bidopportunities.iowa.gov", "rss"),
-    "KS": ("Kansas eSupplier", "https://admin.ks.gov/offices/procurement-and-contracts", "manual"),
-    "KY": ("Kentucky eProcurement", "https://finance.ky.gov/services/eprocurement/", "manual"),
+    "KS": ("Kansas Additional Bid Opportunities", "https://admin.ks.gov/offices/procurement-contracts/bidding--contracts/additional-bid-opportunities", "manual"),  # verified: RSS URL exists but channel is permanently empty (dead feed) — do not use
+    "KY": ("Kentucky eProcurement", "https://finance.ky.gov/eProcurement/Pages/default.aspx", "manual"),  # verified: no feed/subscribe links found
     "LA": ("Louisiana LaPAC", "https://wwwcfprd.doa.louisiana.gov/osp/lapac/", "rss"),
     "ME": ("Maine Bid System", "https://www.maine.gov/dafs/bbm/procurementservices/vendors/rfps", "rss"),
-    "MD": ("Maryland eMaryland Marketplace (eMMA)", "https://emma.maryland.gov", "manual"),
+    "MD": ("Maryland eMaryland Marketplace (eMMA)", "https://emma.maryland.gov", "manual"),  # verified: login-gated, no public feed
     "MA": ("Massachusetts COMMBUYS", "https://www.commbuys.com", "rss"),
-    "MI": ("Michigan SIGMA VSS", "https://sigma.michigan.gov/PRDVSS1X1/", "manual"),
+    "MI": ("Michigan SIGMA VSS (CGI Advantage)", "https://sigma.michigan.gov/PRDVSS1X1/", "manual"),  # verified: email-only notifications, no feed
     "MN": ("Minnesota SWIFT", "https://mn.gov/admin/osp/", "rss"),
     "MS": ("Mississippi MAGIC", "https://www.ms.gov/dfa/contract_bid_search/", "rss"),
-    "MO": ("Missouri MissouriBUYS", "https://missouribuys.mo.gov", "manual"),
-    "MT": ("Montana eMACS", "https://emacs.mt.gov", "manual"),
+    "MO": ("Missouri MissouriBUYS Bid Board", "https://missouribuys.mo.gov/bid-board", "manual"),  # verified: email-only, no syndication
+    "MT": ("Montana eMACS (Jaggaer/SciQuest)", "https://bids.sciquest.com/apps/Router/PublicEvent?CustomerOrg=StateOfMontana", "manual"),  # verified: JS-driven Jaggaer platform, no feed
     "NE": ("Nebraska Contractor Registration", "https://das.nebraska.gov/materiel/purchasing.html", "rss"),
-    "NV": ("Nevada NevadaEPro", "https://nevadaepro.com", "manual"),
+    "NV": ("Nevada NevadaEPro (Periscope S2G)", "https://nevadaepro.com", "manual"),  # verified: email notifications only, no feed
     "NH": ("New Hampshire NHFirst", "https://apps.das.nh.gov/bidscontracts/", "rss"),
-    "NJ": ("New Jersey NJSTART", "https://www.njstart.gov", "manual"),
+    "NJ": ("New Jersey NJSTART (SOVRA/Periscope)", "https://www.njstart.gov", "manual"),  # verified: live JS bid search UI, no RSS/ATOM/JSON found
     "NM": ("New Mexico Procurement", "https://www.generalservices.state.nm.us/state-purchasing/", "rss"),
     "NY": ("New York State Contract Reporter", "https://www.nyscr.ny.gov", "rss"),
     "NC": ("North Carolina eVP / IPS", "https://www.ips.state.nc.us", "rss"),
-    "ND": ("North Dakota Bidder Registration", "https://www.omb.nd.gov/central-services/procurement", "manual"),
-    "OH": ("Ohio Procurement / OhioBuys", "https://ohiobuys.ohio.gov", "manual"),
+    "ND": ("North Dakota NDBuys (Ivalua)", "https://omb.nd.gov/ndbuys", "manual"),  # verified: JS-driven Ivalua UI, no feed
+    "OH": ("Ohio OhioBuys (Ivalua)", "https://ohiobuys.ohio.gov", "manual"),  # verified: JS-driven Ivalua UI, no feed
     "OK": ("Oklahoma OMES Central Purchasing", "https://oklahoma.gov/omes/services/purchasing.html", "rss"),
-    "OR": ("Oregon OregonBuys", "https://oregonbuys.gov", "manual"),
+    "OR": ("Oregon OregonBuys (Periscope S2G/BidSync)", "https://oregonbuys.gov/bso/", "manual"),  # verified: no feed, /bso/rss.aspx returns 404
     "PA": ("Pennsylvania eMarketplace", "https://www.emarketplace.state.pa.us", "rss"),
-    "RI": ("Rhode Island Ocean State Procures", "https://ridop.ri.gov", "manual"),
+    "RI": ("Rhode Island Ocean State Procures", "https://ridop.ri.gov", "manual"),  # verified: site's "RSS feed" link is the general press-release feed, NOT solicitations — do not use
     "SC": ("South Carolina SCBO", "https://procurement.sc.gov", "rss"),
     "SD": ("South Dakota Bid/RFP", "https://boa.sd.gov/central-services/procurement-management/", "rss"),
-    "TN": ("Tennessee Edison SWC / RFP", "https://www.tn.gov/generalservices/procurement/", "manual"),
+    "TN": ("Tennessee Edison Supplier Portal (PeopleSoft)", "https://hub.edison.tn.gov", "manual"),  # verified: session-gated PeopleSoft app, no feed
     "TX": ("Texas SmartBuy / ESBD", "http://www.txsmartbuy.com/esbd", "rss"),
-    "UT": ("Utah U3P / SciQuest", "https://purchasing.utah.gov", "manual"),
+    "UT": ("Utah Purchasing / Bonfire", "https://utah.bonfirehub.com/portal", "manual"),  # verified: JS-driven Bonfire SPA, no feed
     "VT": ("Vermont Bid Opportunities", "https://bgs.vermont.gov/purchasing-contracting/bids", "rss"),
-    "VA": ("Virginia eVA", "https://eva.virginia.gov", "manual"),
-    "WA": ("Washington WEBS", "https://pr-webs-vendor.des.wa.gov", "manual"),
-    "WV": ("West Virginia wvOASIS VSS", "https://prod.wvoasis.gov", "manual"),
+    "VA": ("Virginia eVA (Ivalua/CGI)", "https://eva.virginia.gov", "manual"),  # verified: no static feed, email/fax notifications only
+    "WA": ("Washington WEBS", "https://pr-webs-vendor.des.wa.gov/BidCalendar.aspx", "manual"),  # verified: server-rendered ASP.NET, no feed
+    "WV": ("West Virginia wvOASIS VSS", "https://wvoasis.gov/VSS", "manual"),  # verified: Purchasing Bulletin, no RSS/JSON found
     "WI": ("Wisconsin VendorNet", "https://vendornet.wi.gov", "rss"),
-    "WY": ("Wyoming Public Purchase", "https://www.publicpurchase.com", "manual"),
+    "WY": ("Wyoming Public Purchase", "https://www.publicpurchase.com/gems/wyominggsd,wy", "manual"),  # verified: email notifications only, no feed
     "DC": ("DC OCP Contracts & Solicitations", "https://ocp.dc.gov/page/solicitations", "rss"),
 }
 
