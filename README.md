@@ -42,6 +42,33 @@ population and what each agent spent.
 Configuration: `ENIGMA_STATE_DIR`, `ENIGMA_OLLAMA_ADDR`,
 `ENIGMA_OLLAMA_MODEL`.
 
+## Quick start — agents in Python
+
+Agents don't have to be Rust. The kernel runs Python agents over a small
+JSON-over-stdio bridge, with the same budgets, capability checks, and
+suspension:
+
+```python
+from enigma_sdk import Agent, agent
+
+@agent("summarizer")
+class Summarizer(Agent):
+    def on_message(self, ctx, msg):
+        result = ctx.generate("Summarize: %s" % msg.payload["text"])
+        ctx.memory["done"] = ctx.memory.get("done", 0) + 1
+        ctx.send_to(msg.from_agent, "summary", {"text": result.text})
+        ctx.suspend_self()   # costs nothing until woken
+```
+
+```bash
+cargo run --release --bin enigma -- py-demo --topics 3 --grant 300
+```
+
+The SDK is standard library only — nothing to compile, nothing to install
+on a Pi. See [`sdk/python/README.md`](sdk/python/README.md) for the full
+context API and [`examples/agents.py`](examples/agents.py) for a runnable
+researcher/summarizer pair.
+
 ## Quick start — dashboard
 
 A zero-dependency, stdlib-only live dashboard (CPU, memory, disk,
@@ -59,11 +86,11 @@ No authentication: trusted networks only.
 
 ## Status
 
-Early but real: the Rust kernel (scheduler, budgets, suspension,
-permissions, messaging, Ollama backend) and the dashboard are built and
-tested (26 tests, no network needed). The Python agent SDK is planned.
-Architecture, design principles, and contributor docs live in
-[CLAUDE.md](CLAUDE.md).
+Early but real, and all of it tested (39 Rust + 20 Python tests, no
+network or LLM needed to run them): the Rust kernel (scheduler, budgets,
+suspension, permissions, messaging, Ollama backend), the Python SDK and
+its bridge, and the live dashboard. Architecture, design principles, and
+contributor docs live in [CLAUDE.md](CLAUDE.md).
 
 ## License
 

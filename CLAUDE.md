@@ -39,7 +39,7 @@ frameworks. Changes that violate them need a very good argument in the PR.
   disk and it costs nothing until a message wakes it (resume-on-message).
   Agents are assumed to be suspended most of the time; waking is cheap.
 
-## Architecture (built: Rust core + dashboard; planned: Python SDK)
+## Architecture (built)
 
 ### Kernel — `core/enigma-core/src/kernel.rs` (built)
 
@@ -94,10 +94,29 @@ plus a **live Enigma agents panel** fed by the kernel's streamed
 phone). Binds all interfaces by default with **no authentication** —
 trusted networks only.
 
-### Python SDK — `sdk/python/` (planned)
+### Python SDK & bridge — `sdk/python/`, `src/bridge.rs` (built)
 
-Not started. Agents in Python over a bridge (PyO3 or IPC) — decide when
-the SDK lands and record the decision here.
+Agents can be written in Python and are scheduled exactly like native
+ones: same budgets, same capability checks, same suspension.
+
+**The bridge is IPC, not PyO3** — the decision this file was waiting on.
+The kernel spawns a worker process (`python3 -m enigma_sdk <module>`) and
+speaks newline-delimited JSON over its stdin/stdout. A delivery is a
+nested syscall loop: the kernel hands the worker a message, the worker
+calls back (`generate`, `spawn`, `call_tool`, `send`, `subscribe`,
+`suspend_self`), and each call is serviced through the same `Ctx` a native
+agent uses. Rationale, should anyone revisit it: PyO3 would make CPython
+resident in the kernel and put a compiler toolchain and wheel builds in
+the way of running on a Pi — both against the lightweight contract. IPC
+keeps the core at two dependencies and the SDK pure-stdlib, and it keeps
+suspension honest (no interpreter state to preserve).
+
+Protocol version is `PROTOCOL_VERSION` on both sides; the handshake
+refuses a mismatch rather than guessing. `register_python_kinds` registers
+every kind the worker advertised. A Python exception kills that agent with
+the exception as the reason; a refused syscall raises `EnigmaError` in
+Python, so agents can catch and recover. The worker redirects
+`sys.stdout` to stderr so an agent's `print()` cannot corrupt the channel.
 
 ## Repository layout
 
@@ -108,9 +127,14 @@ the SDK lands and record the decision here.
 │   └── workflows/ci.yml           # fmt, clippy -D warnings, tests, aarch64, py_compile
 ├── core/                          # Rust workspace
 │   └── enigma-core/               # the runtime crate + `enigma` CLI
-│       ├── src/                   # kernel, agent, bus, budget, memory, model, tools, permissions
-│       ├── src/bin/enigma.rs      # CLI: demo, status
-│       └── tests/                 # kernel.rs, ollama_http.rs
+│       ├── src/                   # kernel, agent, bus, budget, memory, model, tools, permissions, bridge
+│       ├── src/bin/enigma.rs      # CLI: demo, py-demo, status
+│       └── tests/                 # kernel.rs, ollama_http.rs, python_bridge.rs (+ py/ agents)
+├── sdk/python/
+│   ├── enigma_sdk/                # the agent SDK (stdlib only)
+│   └── tests/                     # protocol tests
+├── examples/
+│   └── agents.py                  # example Python agents (`enigma py-demo`)
 ├── dashboard/
 │   └── enigma_dash.py             # live system + agents dashboard
 ├── CLAUDE.md
@@ -123,19 +147,34 @@ the SDK lands and record the decision here.
 
 ```
 cargo build                # or --release
-cargo test                 # all 26 tests, no network/LLM needed
+cargo test                 # all 39 tests, no network/LLM needed
 cargo test --test kernel spawning_transfers_budget_from_parent   # single test
 cargo fmt --all --check
 cargo clippy --all-targets -- -D warnings
 cargo check --target aarch64-unknown-linux-gnu   # RPi5 cross-check
 ```
 
-**Run it** (needs an Ollama server for `demo`):
+`cargo test` requires `python3` on PATH: `tests/python_bridge.rs` spawns a
+real worker. Override the interpreter with `ENIGMA_PYTHON`.
+
+**Python SDK** (from `sdk/python/`, no install needed — stdlib only):
 
 ```
-cargo run --release --bin enigma -- demo --workers 3 --grant 300
+python3 -m unittest discover -s tests      # protocol tests
+python3 -m unittest tests.test_protocol.SyscallTests   # single class
+```
+
+**Run it** (needs an Ollama server; run from the repository root):
+
+```
+cargo run --release --bin enigma -- demo --workers 3 --grant 300     # Rust agents
+cargo run --release --bin enigma -- py-demo --topics 3 --grant 300   # Python agents
 cargo run --release --bin enigma -- status
 ```
+
+`py-demo` reads `examples/agents.py`; point it elsewhere with
+`ENIGMA_PYTHON_DIR` / `ENIGMA_PYTHON_MODULE`, and set `ENIGMA_SDK_PATH` if
+the SDK is not at `sdk/python`.
 
 **Dashboard** (no install step — standard library only, Python 3.9+):
 
@@ -156,6 +195,12 @@ tests by a deterministic in-test backend for exact budget arithmetic, and
 the real Ollama HTTP client is tested hermetically against an in-test
 `TcpListener` serving canned HTTP (`tests/ollama_http.rs`) — the exact
 bytes-on-wire path ships tested without a live LLM.
+
+The Python bridge is tested the same way, from both ends: a real kernel
+driving a real `python3` worker through the real SDK
+(`tests/python_bridge.rs`, agents in `tests/py/`), plus scripted-stream
+tests of the protocol contract on the Python side
+(`sdk/python/tests/test_protocol.py`). Neither side is simulated.
 
 ## License
 
