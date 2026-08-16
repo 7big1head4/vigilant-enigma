@@ -1,0 +1,3 @@
+[workspace]
+members = ["enigma-core"]
+resolver = "2"
