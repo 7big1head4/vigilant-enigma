@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enigma-sdk"
+version = "0.1.0"
+description = "Write agents for Enigma, an agentic operating system"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "GPL-2.0-or-later" }
+authors = [{ name = "the Enigma authors" }]
+keywords = ["agents", "llm", "runtime", "enigma"]
+classifiers = [
+  "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+  "Programming Language :: Python :: 3",
+  "Topic :: System :: Distributed Computing",
+]
+# No runtime dependencies, by design: the SDK is standard library only, so
+# it installs on a Raspberry Pi with nothing to compile.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/7big1head4/vigilant-enigma"
+
+[tool.setuptools.packages.find]
+include = ["enigma_sdk*"]

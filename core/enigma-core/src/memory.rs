@@ -33,6 +33,17 @@ impl Memory {
         self.entries.is_empty()
     }
 
+    /// Borrow the whole store — used to hand memory to a Python agent.
+    pub fn as_map(&self) -> &serde_json::Map<String, Value> {
+        &self.entries
+    }
+
+    /// Replace the whole store. A Python agent mutates memory as a plain
+    /// dict and returns it wholesale when its handler finishes.
+    pub fn replace(&mut self, entries: serde_json::Map<String, Value>) {
+        self.entries = entries;
+    }
+
     /// Convenience for counters: read an integer, defaulting to 0.
     pub fn get_u64(&self, key: &str) -> u64 {
         self.get(key).and_then(Value::as_u64).unwrap_or(0)

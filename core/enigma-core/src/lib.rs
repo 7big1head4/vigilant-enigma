@@ -25,6 +25,7 @@
 //! dashboard) can watch agents live.
 
 pub mod agent;
+pub mod bridge;
 pub mod budget;
 pub mod bus;
 pub mod error;
@@ -35,6 +36,7 @@ pub mod permissions;
 pub mod tools;
 
 pub use agent::{Agent, AgentId, AgentState};
+pub use bridge::{register_python_kinds, PythonBridge};
 pub use budget::Budget;
 pub use bus::{Address, Envelope, Sender};
 pub use error::{Error, Result};

@@ -25,6 +25,8 @@ pub enum Error {
     UnknownTool(String),
     Model(String),
     Tool(String),
+    /// Python bridge transport failure, or an agent that raised.
+    Bridge(String),
     Io(std::io::Error),
     Serde(serde_json::Error),
 }
@@ -52,6 +54,7 @@ impl fmt::Display for Error {
             Error::UnknownTool(name) => write!(f, "unknown tool '{name}'"),
             Error::Model(msg) => write!(f, "model backend error: {msg}"),
             Error::Tool(msg) => write!(f, "tool error: {msg}"),
+            Error::Bridge(msg) => write!(f, "python bridge: {msg}"),
             Error::Io(err) => write!(f, "io error: {err}"),
             Error::Serde(err) => write!(f, "serialization error: {err}"),
         }
