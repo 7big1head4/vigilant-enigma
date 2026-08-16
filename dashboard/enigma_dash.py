@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Enigma dashboard — live system stats for the machine Enigma runs on.
+# Enigma dashboard — live system and agent stats for the machine Enigma runs on.
 #
 # Copyright (C) 2026 the Enigma authors
 #
@@ -18,6 +18,11 @@
 # target. Serves one HTML page (a PWA, so it can be added to a phone's home
 # screen), a JSON stats API, a web manifest, and an icon.
 #
+# The "Enigma agents" panel is live: the Rust kernel streams status.json
+# into its state directory while it runs (throttled to 250 ms), and this
+# server picks it up on every sample, so agents appear, suspend, and die
+# in real time on the page.
+#
 # Usage:
 #   python3 dashboard/enigma_dash.py [--host 0.0.0.0] [--port 8765]
 #
@@ -33,7 +38,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-SAMPLE_INTERVAL = 2.0  # seconds between /proc samples
+SAMPLE_INTERVAL = 1.0  # seconds between samples — keeps the page fluid
 TOP_PROCESSES = 8
 
 _CLK_TCK = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
@@ -133,6 +138,27 @@ def read_throttled():
         "soft_temp_limit": bool(bits & 0x8),
         "was_throttled": bool(bits & 0x40000),
     }
+
+
+def read_agents():
+    """The Enigma kernel's live status.json, or None if no kernel has run.
+
+    Resolution order: $ENIGMA_STATUS (explicit file), then
+    $ENIGMA_STATE_DIR/status.json, then ~/.enigma/status.json — matching
+    the kernel's KernelConfig::from_env().
+    """
+    path = os.environ.get("ENIGMA_STATUS")
+    if not path:
+        state_dir = os.environ.get(
+            "ENIGMA_STATE_DIR", os.path.expanduser("~/.enigma"))
+        path = os.path.join(state_dir, "status.json")
+    raw = _read(path)
+    if raw is None:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None  # mid-write race: keep last known state client-side
 
 
 def read_processes(prev, dt):
@@ -235,9 +261,7 @@ class Sampler(threading.Thread):
             "temp_c": read_temperature(),
             "throttled": read_throttled(),
             "processes": procs,
-            # Placeholder until the Enigma runtime exists (see CLAUDE.md):
-            # the runtime will report running/suspended agents and budgets.
-            "agents": None,
+            "agents": read_agents(),
         }
 
         with self.lock:
@@ -321,7 +345,7 @@ header .dot.stale { background: var(--critical); }
 .meter { height: 6px; border-radius: 3px; background: var(--seq-150);
          margin-top: 10px; overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: 3px; width: 0;
-           background: var(--series-1); transition: width .5s; }
+           background: var(--series-1); transition: width .6s ease; }
 .status { display: inline-flex; align-items: center; gap: 5px;
           font-size: 12px; color: var(--ink-2); margin-top: 2px; }
 .status .sw { width: 9px; height: 9px; border-radius: 50%; }
@@ -335,7 +359,7 @@ header .dot.stale { background: var(--critical); }
 .core .track { height: 12px; background: var(--seq-150); border-radius: 3px;
                overflow: hidden; }
 .core .track i { display: block; height: 100%; background: var(--series-1);
-                 border-radius: 0 3px 3px 0; transition: width .5s; }
+                 border-radius: 0 3px 3px 0; transition: width .6s ease; }
 .legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-2);
           margin-bottom: 6px; }
 .legend .key { display: inline-flex; align-items: center; gap: 6px; }
@@ -354,6 +378,19 @@ td { padding: 4px 6px; border-bottom: 1px solid var(--grid);
 td:first-child { color: var(--ink); }
 th:nth-child(n+3), td:nth-child(n+3) { text-align: right; }
 .agents .empty { color: var(--muted); font-size: 12.5px; padding: 8px 0; }
+.agents .counts { color: var(--ink-2); font-size: 12.5px; margin-bottom: 8px; }
+.agent { display: grid; grid-template-columns: 14px 1fr 130px; gap: 8px;
+         align-items: center; padding: 5px 0;
+         border-bottom: 1px solid var(--grid); }
+.agent:last-child { border-bottom: 0; }
+.agent .sw { width: 9px; height: 9px; border-radius: 50%; }
+.agent .who { min-width: 0; overflow: hidden; text-overflow: ellipsis;
+              white-space: nowrap; font-size: 12.5px; }
+.agent .who small { color: var(--muted); }
+.agent .tok { text-align: right; }
+.agent .tok .txt { color: var(--ink-2); font-size: 11.5px;
+                   font-variant-numeric: tabular-nums; }
+.agent .tok .meter { margin-top: 3px; height: 4px; }
 footer { color: var(--muted); font-size: 11.5px; margin: 14px 2px; }
 </style>
 </head>
@@ -416,10 +453,10 @@ footer { color: var(--muted); font-size: 11.5px; margin: 14px 2px; }
   </div>
   <div class="card agents">
     <h2>Enigma agents</h2>
-    <div class="empty" id="agents">
-      Runtime not built yet — when it exists, running and suspended agents
-      and their token budgets appear here.
-    </div>
+    <div id="agents"><div class="empty">
+      No kernel state found — run the Enigma runtime (see core/) and its
+      agents will appear here live: spawning, suspending, spending tokens.
+    </div></div>
   </div>
 </div>
 
@@ -428,13 +465,15 @@ footer { color: var(--muted); font-size: 11.5px; margin: 14px 2px; }
 
 <script>
 "use strict";
-const HISTORY = 60;
+const HISTORY = 90;
 const hist = { cpu: [], rx: [], tx: [] };
 let lastOk = 0;
 
 const $ = id => document.getElementById(id);
 const css = name =>
   getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const esc = s => String(s).replace(/[<>&"]/g,
+  c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));
 
 function fmtBytes(b, perSec) {
   const u = perSec ? ["B/s","KB/s","MB/s","GB/s"] : ["B","KB","MB","GB","TB"];
@@ -471,13 +510,12 @@ function sparkline(svg, data, color, fillWash) {
   html += `<circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4"
            fill="${color}" stroke="${css("--surface")}" stroke-width="2"/>`;
   svg.innerHTML = html;
-  return { pts, max, W, H };
 }
 
 function severity(v, warn, bad) {
-  if (v >= bad) return ["var(--critical)", "critical"];
-  if (v >= warn) return ["var(--serious)", "high"];
-  return ["var(--series-1)", "ok"];
+  if (v >= bad) return "var(--critical)";
+  if (v >= warn) return "var(--serious)";
+  return "var(--series-1)";
 }
 
 let netGeom = null;
@@ -498,7 +536,7 @@ function render(s) {
                            "</small>";
   $("mem-meta").textContent = `of ${fmtBytes(m.total)} (${mp.toFixed(0)}%)`;
   $("mem-bar").style.width = mp.toFixed(1) + "%";
-  $("mem-bar").style.background = severity(mp, 80, 92)[0];
+  $("mem-bar").style.background = severity(mp, 80, 92);
 
   // Temperature tile
   if (s.temp_c != null) {
@@ -528,7 +566,7 @@ function render(s) {
                             "</small>";
   $("disk-meta").textContent = `of ${fmtBytes(d.total)} (${dp.toFixed(0)}%)`;
   $("disk-bar").style.width = dp.toFixed(1) + "%";
-  $("disk-bar").style.background = severity(dp, 80, 92)[0];
+  $("disk-bar").style.background = severity(dp, 80, 92);
 
   // Cores
   $("cores").innerHTML = s.cpu.cores.map((c, i) => `
@@ -558,35 +596,67 @@ function render(s) {
     `<path d="${path(tp)}" fill="none" stroke="${css("--series-2")}"
        stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` +
     `<g id="net-cursor"></g>`;
-  netGeom = { W, H, rx: hist.rx.slice(), tx: hist.tx.slice(), rp, tp };
+  netGeom = { W, H, rx: hist.rx.slice(), tx: hist.tx.slice() };
 
   // Processes
   $("procs").innerHTML = s.processes.map(p => `
-    <tr><td>${p.name.replace(/[<>&]/g, "")}</td><td>${p.pid}</td>
+    <tr><td>${esc(p.name)}</td><td>${p.pid}</td>
         <td>${p.cpu.toFixed(1)}</td><td>${fmtBytes(p.rss)}</td></tr>`).join("");
 
-  // Agents
-  if (s.agents) {
-    $("agents").textContent =
-      `${s.agents.running} running · ${s.agents.suspended} suspended`;
-  }
+  renderAgents(s.agents);
 
   $("foot").textContent =
     `Enigma dashboard · refreshed ${new Date(s.time * 1000)
-      .toLocaleTimeString()} · every ${Math.round(2)}s`;
+      .toLocaleTimeString()} · every 1s`;
+}
+
+function renderAgents(a) {
+  if (!a || !Array.isArray(a.agents)) return; // keep placeholder / last state
+  const el = $("agents");
+  if (a.agents.length === 0) {
+    el.innerHTML = `<div class="empty">Kernel is up — no agents yet.</div>`;
+    return;
+  }
+  const stateOf = ag => (ag.state && ag.state.state) || "?";
+  const n = s => a.agents.filter(ag => stateOf(ag) === s).length;
+  const dot = {
+    running: "var(--good)", suspended: "var(--muted)",
+    dead: "var(--critical)",
+  };
+  const rows = a.agents.map(ag => {
+    const st = stateOf(ag);
+    const reason = (ag.state && ag.state.reason) || "";
+    const max = ag.token_budget;
+    const pct = max ? Math.min(100, 100 * ag.tokens_used / max) : 0;
+    const tokTxt = max == null
+      ? `${ag.tokens_used} tok · ∞`
+      : `${ag.tokens_used}/${max} tok`;
+    return `<div class="agent" title="${esc(st)}${reason ?
+        " — " + esc(reason) : ""}">
+      <span class="sw" style="background:${dot[st] || "var(--muted)"}"></span>
+      <span class="who">${esc(ag.name)} <small>· ${esc(ag.kind)}${
+        ag.parent != null ? " · ↳ of agent-" + ag.parent : ""}</small></span>
+      <span class="tok"><span class="txt">${tokTxt}</span>
+        ${max != null ? `<span class="meter"><i style="width:${pct}%;
+          background:${pct >= 92 ? "var(--critical)" : pct >= 80 ?
+          "var(--serious)" : "var(--series-1)"}"></i></span>` : ""}
+      </span></div>`;
+  }).join("");
+  el.innerHTML = `<div class="counts">${n("running")} running ·
+    ${n("suspended")} suspended · ${n("dead")} dead ·
+    ${(a.stats && a.stats.dispatched) || 0} messages</div>${rows}`;
 }
 
 // Crosshair tooltip for the network chart
 const tip = $("tip");
 $("netchart").addEventListener("mousemove", ev => {
-  if (!netGeom) return;
+  if (!netGeom || netGeom.rx.length < 2) return;
   const r = ev.currentTarget.getBoundingClientRect();
   const frac = (ev.clientX - r.left) / r.width;
-  const i = Math.max(0, Math.min(netGeom.rx.length - 1,
-    Math.round(frac * (netGeom.rx.length - 1))));
-  if (netGeom.rx[i] === undefined) return;
+  const last = netGeom.rx.length - 1;
+  const i = Math.max(0, Math.min(last, Math.round(frac * last)));
   const cur = ev.currentTarget.querySelector("#net-cursor");
-  const x = (i / Math.max(netGeom.rx.length - 1, 1)) * netGeom.W;
+  const x = (i / last) * netGeom.W;
   cur.innerHTML =
     `<line x1="${x}" y1="0" x2="${x}" y2="${netGeom.H}"
        stroke="${css("--muted")}" stroke-width="1" opacity="0.5"/>`;
@@ -609,10 +679,10 @@ async function tick() {
     if (s && s.time) { render(s); lastOk = Date.now(); }
   } catch (e) { /* keep last render */ }
   $("livedot").className =
-    "dot" + (Date.now() - lastOk > 8000 ? " stale" : "");
+    "dot" + (Date.now() - lastOk > 5000 ? " stale" : "");
 }
 tick();
-setInterval(tick, 2000);
+setInterval(tick, 1000);
 </script>
 </body>
 </html>
